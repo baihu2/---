@@ -9,12 +9,7 @@
 低延迟实时：WebSocket 视频流 + 时序投票机制
 全栈一体化：模型训练 → API 服务 → Web 前端
 🧠 技术架构
-
-
-
-
-
-
+<img width="1788" height="752" alt="tongyi-mermaid-2026-02-22-183144" src="https://github.com/user-attachments/assets/7ff5deb5-1a6f-46df-9207-74a76eb99df6" />
 模型层
 车牌检测：YOLOv8n 自定义训练（CCPD/CBLPRD-330k 数据集）
 字符识别：CRNN + CTC Loss（双向 LSTM + CNN 特征提取）
@@ -32,48 +27,23 @@ WebSocket：实时视频流识别（/ws/live）
 实时渲染：车牌号 + 高清裁剪图动态展示
 🚀 快速开始
 1. 环境准备
-bash
-
-编辑
-
-
-
 # 创建虚拟环境
 python -m venv lpr-env
 source lpr-env/bin/activate  # Linux/Mac
 lpr-env\Scripts\activate     # Windows
-
 # 安装依赖
 pip install -r requirements.txt
 2. 模型配置
 修改 main.py 中的模型路径：
-python
-
-编辑
-
-
-
 class Settings:
     YOLO_MODEL_PATH = "path/to/yolov8_plate_detection/best.pt"
     CRNN_MODEL_PATH = "path/to/crnn_best.pth"
 3. 启动服务
-bash
-
-编辑
-
-
-
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 4. 访问应用
 Web 界面：http://localhost:8000
 API 文档：http://localhost:8000/docs
 📂 项目结构
-text
-
-编辑
-
-
-
 license-plate-recognition/
 ├── main.py                 # FastAPI 主应用（含 WebSocket）
 ├── train_crnn.py           # CRNN 字符识别模型训练脚本
@@ -108,12 +78,6 @@ license-plate-recognition/
 视频流延迟	< 1.2s (含网络传输)
 支持车牌类型	蓝牌、绿牌、双层黄牌、新能源
 🛠️ 依赖库
-txt
-
-编辑
-
-
-
 fastapi==0.104.1
 uvicorn==0.24.0
 pydantic==2.5.0
@@ -126,30 +90,12 @@ pillow==10.1.0
 matplotlib==3.8.2
 📝 使用说明
 训练 YOLOv8 检测模型
-bash
-
-编辑
-
-
-
 python train_yolo.py
 # 输出: runs/detect/plate_detection/weights/best.pt
 训练 CRNN 识别模型
-bash
-
-编辑
-
-
-
 python train_crnn.py
 # 输出: crnn_best.pth
 部署生产环境
-bash
-
-编辑
-
-
-
 # 关闭 debug 模式
 uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 💡 项目亮点
