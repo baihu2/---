@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>车牌识别系统</title>
+  <style>
+    /* 基础样式 */
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f8f9fa; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .mode-switch { text-align: center; margin: 20px 0; }
+    .btn { padding: 10px 20px; margin: 0 10px; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-primary { background: #1976d2; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .section { display: none; }
+    .active { display: block !important; }
+    video, canvas { border: 1px solid #ddd; border-radius: 8px; }
+    #liveResult { margin-top: 10px; font-size: 1.2rem; color: #d32f2f; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <header class="header" style="background:#fff; padding:1rem; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+    <div style="text-align:center;">
+      <h1>车牌识别系统 🚗</h1>
+      <p>支持静态图片上传 + 实时视频识别 | 蓝牌/绿牌/黄牌 | 识别率97.5%</p>
+    </div>
+  </header>
+
+  <!-- 模式切换 -->
+  <div class="mode-switch">
+    <button class="btn btn-primary" onclick="switchMode('upload')">图片上传识别</button>
+    <button class="btn btn-secondary" onclick="switchMode('live')">实时视频识别</button>
+  </div>
+
+  <main class="container">
+    <!-- 图片上传模式 -->
+    <section id="uploadSection" class="section active">
+      <!-- 您原有的上传区域 HTML -->
+      <section class="upload-section">
+        <h2>上传车牌图片</h2>
+        <p>支持JPG/PNG格式，建议上传清晰的车辆正面照片</p>
+        <div class="upload-container" id="dropZone">
+          <div>📁</div>
+          <h3>拖拽图片至此或点击上传</h3>
+          <p>支持JPG、PNG格式，最大10MB</p>
+          <input type="file" id="imageInput" accept="image/jpeg, image/png" hidden>
+          <button class="btn" onclick="document.getElementById('imageInput').click()">点击选择文件</button>
+          <div class="preview-container" id="preview">
+            <div><p>图片预览将显示在这里</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 结果区域 -->
+      <section id="resultSection" style="display:none; text-align:center; margin-top:2rem;">
+        <h2>识别结果</h2>
+        <div id="plateResult" style="font-size:3rem; color:#d32f2f; font-weight:bold;"></div>
+        <div style="margin-top:1rem; padding:1rem; border:1px dashed #ccc; border-radius:8px;">
+          <h4>车牌特写</h4>
+          <img id="croppedPlate" src="" alt="车牌" style="display:block; margin:0 auto; max-width:100%; height:auto; border-radius:4px;">
+        </div>
+        <div id="plateType" style="margin-top:1rem; padding:0.5rem; background:#e3f2fd; border-radius:20px; display:inline-block;">
+          <span style="color:#1976d2;">未知</span>
+        </div>
+      </section>
+
+      <div class="status-bar" id="statusBar" style="margin-top:1rem; text-align:center;">
+        <span id="statusText">等待上传图片...</span>
+      </div>
+      <div id="error" style="display:none; color:#d32f2f; text-align:center; margin-top:1rem;"></div>
+    </section>
+
+    <!-- 实时视频模式 -->
+    <section id="liveSection" class="section">
+      <h2 style="text-align:center;">实时车牌识别</h2>
+      <div style="text-align:center; margin-top:1rem;">
+        <video id="video" width="640" height="480" autoplay muted style="background:#000;"></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <div id="liveResult">请允许摄像头访问</div>
+        <!-- 实时车牌特写 -->
+<div id="livePlatePreview" style="margin-top:1rem; text-align:center; display:none;">
+  <h4>车牌特写</h4>
+  <img id="liveCroppedPlate" src="" alt="实时车牌" 
+       style="max-width:300px; max-height:100px; border:2px solid #1976d2; border-radius:4px; display:none;">
+</div>
+      </div>
+    </section>
+  </main>
+
+  <footer style="text-align:center; padding:1rem; margin-top:2rem; background:#eee;">
+    <p>© 2026 张炫毕业设计 | 车牌识别系统</p>
+  </footer>
+
+  <script>
+    // ========== 全局变量 ==========
+    let ws = null;
+    let isLiveMode = false;
+
+    // ========== 模式切换 ==========
+    function switchMode(mode) {
+      document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+      if (mode === 'upload') {
+        document.getElementById('uploadSection').classList.add('active');
+        stopLiveRecognition();
+      } else {
+        document.getElementById('liveSection').classList.add('active');
+        startLiveRecognition();
+      }
+    }
+
+    // ========== 图片上传逻辑（您的原有代码精简版）==========
+    document.getElementById('imageInput').addEventListener('change', handleImageUpload);
+    
+    async function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      updateStatus("准备识别...", true);
+      const preview = document.getElementById('preview');
+      preview.innerHTML = `<img src=" $ {URL.createObjectURL(file)}" style="max-width:100%; max-height:300px;">`;
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('http://localhost:8000/api/v1/recognize', { method: 'POST', body: formData });
+        const result = await res.json();
+
+        if (result.success) {
+          document.getElementById('plateResult').textContent = result.plate_number;
+          document.getElementById('croppedPlate').src = result.cropped_image;
+          document.getElementById('plateType').textContent = 
+            result.plate_type === 'green' ? '绿牌' : 
+            result.plate_type === 'blue' ? '蓝牌' : '未知';
+          document.getElementById('resultSection').style.display = 'block';
+          updateStatus("识别完成", false);
+        } else throw new Error(result.error_message);
+      } catch (err) {
+        updateStatus(`识别失败:  $ {err.message}`, false);
+      }
+    }
+
+    function updateStatus(text, loading) {
+      const el = document.getElementById('statusText');
+      el.textContent = text;
+      el.style.color = loading ? '#1976d2' : '#d32f2f';
+    }
+
+    // ========== 实时视频逻辑 ==========
+    async function startLiveRecognition() {
+      if (isLiveMode) return;
+      isLiveMode = true;
+
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // 连接 WebSocket
+      ws = new WebSocket('ws://localhost:8000/ws/live');
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        // 更新文字
+        document.getElementById('liveResult').textContent = 
+          data.success ? `识别到:  ${data.plate_number}` : '未检测到车牌';
+      
+        // 显示/隐藏裁剪图区域
+        const previewBox = document.getElementById('livePlatePreview');
+        const img = document.getElementById('liveCroppedPlate');
+      
+        if (data.success && data.cropped_image) {
+          img.src = data.cropped_image;
+          img.style.display = 'block';
+          previewBox.style.display = 'block';
+        } else {
+          previewBox.style.display = 'none';
+          if (img) img.style.display = 'none';
+        }
+      };
+      ws.onerror = () => {
+        document.getElementById('liveResult').textContent = '连接失败，请检查后端';
+        isLiveMode = false;
+      };
+
+      // 获取摄像头
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+
+        // 每 800ms 发送一帧（约 1.25 FPS，平衡性能与实时性）
+        setInterval(() => {
+          if (!isLiveMode || !ws || ws.readyState !== WebSocket.OPEN) return;
+          
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          canvas.toBlob(blob => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(blob);
+            }
+          }, 'image/jpeg', 0.7);
+        }, 800);
+      } catch (err) {
+        document.getElementById('liveResult').textContent = '无法访问摄像头: ' + err.message;
+        isLiveMode = false;
+      }
+    }
+
+    function stopLiveRecognition() {
+      isLiveMode = false;
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      const video = document.getElementById('video');
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+    }
+
+    // 页面卸载时清理
+    window.addEventListener('beforeunload', stopLiveRecognition);
+  </script>
+</body>
+</html>

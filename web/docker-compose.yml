@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # Nginx反向代理 (知识库[9]提到)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./frontend:/usr/share/nginx/html
+      - ./ssl:/etc/nginx/ssl  # SSL证书
+    depends_on:
+      - api
+    networks:
+      - plate-net
+
+  # FastAPI应用
+  api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0  # 如有GPU
+    volumes:
+      - ./backend/models:/app/models
+    networks:
+      - plate-net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Redis缓存 (知识库[6]提到)
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - plate-net
+
+  # MySQL数据库 (知识库[1]提到)
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: license_plate_db
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - plate-net
+
+volumes:
+  db_data:
+
+networks:
+  plate-net:
+    driver: bridge
